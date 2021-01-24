@@ -1,0 +1,1 @@
+[{"category":"cars","section":"all","output_type":"list","page":1,"price_from":300000,"seller_group":"PRIVATE","sort":"cr_date-desc","top_days":"1","catalog_filter":[{"vendor":"VENDOR2"}],"geo_radius":200,"geo_id":[2]}]
