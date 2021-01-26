@@ -113,9 +113,25 @@ function extractExclusions(json, preset) {
             reject(`Can't parse results ${error}`);
         }
 
-        const exclusions = object.map(item => item.id).filter(item => !config.exclusions[preset].includes(item));
-        config.exclusions[preset].push(...exclusions);
-        console.log(`[${preset}] Found ${exclusions.length} new items (${object.length} raw, ${config.exclusions[preset].length} total)`);
+        let counter = {};
+        object.forEach(({ id, region }) => {
+            if (!counter[region]) counter[region] = 0;
+
+            if (!config.exclusions[preset][region]) {
+                config.exclusions[preset][region] = [];
+            }
+
+            if (!config.exclusions[preset][region].includes(id)) {
+                config.exclusions[preset][region].push(id);
+                counter[region]++;
+            }
+        });
+
+        for (let region in counter) {
+            const count = counter[region];
+            console.log(`[${preset}|${region}] Found ${count} new items`);
+        }
+        
         resolve();
     });
 }
@@ -192,7 +208,7 @@ function addTask(parser, preset, queries, exclusions, queriesFilename) {
                 }, {
                     type: 'override',
                     id: 'duplicate',
-                    value: exclusions.join(','),
+                    value: JSON.stringify(exclusions),
                 },
             ]],
             resultsFormat: '$p1.preset',
@@ -281,8 +297,8 @@ function getConfig() {
             config.pass = params.pass;
             config.remote = params.remote;
             config.exclusions = {
-                'auto-ru': [],
-                'avito': [],
+                'auto-ru': {},
+                'avito': {},
             };
 
             resolve();
