@@ -229,7 +229,7 @@ function addTask(parser, preset, queries, exclusions, queriesFilename) {
                 overwrite: false,
                 writeBOM: false,
             },
-            // doLog: 'db',
+            doLog: 'no',
             limitLogsCount: 0,
             keepUnique: 'No',
             moreOptions: true,
