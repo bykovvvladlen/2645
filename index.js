@@ -4,7 +4,7 @@ const axios = require('axios');
 const config = {};
 
 const saveIssues = process.argv.splice(2).includes('--save-issues');
-const issuesFolder = __dirname + '\\issues\\';
+const issuesFolder = __dirname + '/issues/';
 if (saveIssues) {
     console.log(`Issues will be saved to ${issuesFolder}`);
 }
