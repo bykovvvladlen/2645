@@ -81,7 +81,7 @@ if (saveIssues) {
             
                 catch(error) {
                     console.log(`[${queriesFilename}] ${error}`);
-                    makeReport(report, error);
+                    if (error !== 'No results') makeReport(report, error);
                     continue;
                 }
             
