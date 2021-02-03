@@ -3,6 +3,12 @@ const AParser = require('a-parser-client');
 const axios = require('axios');
 const config = {};
 
+const saveIssues = process.argv.splice(2).includes('--save-issues');
+const issuesFolder = __dirname + '\\issues\\';
+if (saveIssues) {
+    console.log(`Issues will be saved to ${issuesFolder}`);
+}
+
 (async function() {
     try {
         await getConfig();
@@ -36,14 +42,23 @@ const config = {};
     for (let { queriesFilename, parser } of presets) {
         (async function() {
             while (true) {
+                const report = [queriesFilename];
                 queries = await getQueries(queriesFilename);
-                const taskUid = await addTask(parser, 'Order::2645', queries, config.exclusions[queriesFilename], queriesFilename).catch(error => console.log(error));
-                if (!taskUid) {
+                let taskUid;
+
+                try {
+                    taskUid = await addTask(parser, 'Order::2645', queries, config.exclusions[queriesFilename], queriesFilename);
+                }
+
+                catch(error) {
+                    console.log(error);
                     console.log(`[${queriesFilename}] Wait 10 seconds`);
+                    makeReport(report, error);
                     await sleep(10000);
                     continue;
                 }
-            
+                
+                report.push(taskUid);
                 console.log(`[${queriesFilename}] Wait for task #${taskUid}`);
                 
                 try {
@@ -52,6 +67,7 @@ const config = {};
 
                 catch(error) {
                     console.log(`[${queriesFilename}] ${error}`);
+                    makeReport(report, error);
                     continue;
                 }
             
@@ -65,15 +81,51 @@ const config = {};
             
                 catch(error) {
                     console.log(`[${queriesFilename}] ${error}`);
+                    makeReport(report, error);
                     continue;
                 }
             
-                await extractExclusions(result, queriesFilename).catch(error => console.log(`[${queriesFilename}] ${error}`));
-                await sendResults(result).catch(error => console.log(`[${queriesFilename}] ${error}`));
+                report.push(result);
+                try {
+                    await extractExclusions(result, queriesFilename);
+                }
+
+                catch(error) {
+                    console.log(`[${queriesFilename}] ${error}`);
+                    makeReport(report, error);
+                    continue;
+                }
+
+                try {
+                    await sendResults(result);
+                }
+
+                catch(error) {
+                    console.log(`[${queriesFilename}] ${error}`);
+                    makeReport(report, error);
+                    continue;
+                }
             }
         })();
     }
 })();
+
+function makeReport(data, error) {
+    if (saveIssues) {
+        if (!fs.existsSync(issuesFolder)) {
+            fs.mkdirSync(issuesFolder);
+        }
+        
+        const date = new Date();
+        const timestamp = date.toJSON().replace(/:/g, '-');
+        const name = `${timestamp}-${data[0]}.txt`;
+        
+        const line = '\n' + '='.repeat(60) + '\n';
+        const body = `${error}${line}${date.toLocaleString()}\ntaskUid: ${data[1]}${line}result:\n\n${data[2]}`;
+        fs.writeFileSync(issuesFolder + name, body);
+        console.log(`Issue saved to ${name}`);
+    }
+}
 
 function sendResults(data) {
     return new Promise(async (resolve, reject) => {
@@ -164,7 +216,7 @@ function getResults(taskUid) {
         let formattedResult;
 
         try {
-            formattedResult = result?.data?.replace(/,[\s\n\r]*\]$/, ']');
+            formattedResult = result?.data?.replace(/none,|,none/g, '').replace(/,[\s\n\r]*\]$/, ']');
         }
 
         catch(error) {
