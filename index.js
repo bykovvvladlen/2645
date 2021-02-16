@@ -3,7 +3,13 @@ const AParser = require('a-parser-client');
 const axios = require('axios');
 const config = {};
 
-const saveIssues = process.argv.splice(2).includes('--save-issues');
+const args = process.argv.splice(2);
+const doLog = args.includes('--do-log') ? 'db' : 'no';
+if (doLog) {
+    console.log('Task logs enabled');
+}
+
+const saveIssues = args.includes('--save-issues');
 const issuesFolder = __dirname + '/issues/';
 if (saveIssues) {
     console.log(`Issues will be saved to ${issuesFolder}`);
@@ -28,7 +34,7 @@ if (saveIssues) {
         console.log(error);
         return;
     }
-
+    
     const presets = [
         {
             queriesFilename: 'auto-ru',
@@ -231,13 +237,22 @@ function getResults(taskUid) {
 function waitForTask(taskUid) {
     return new Promise(async (resolve, reject) => {
         let status;
-        while (status != 'completed' && status != 'stopped' && status != 'paused') {
+        while (!['completed', 'stopped', 'paused', 'error'].includes(status)) {
             if (status != undefined) await sleep(5000);
             const response = await config.aparser.makeRequest('getTaskState', { taskUid });
             status = response?.data?.status;
         }
+		
+		if (status === 'error') {
+			await config.aparser.makeRequest('changeTaskStatus', {
+				taskUid,
+				toStatus: 'deleting',
+			});
+			
+			reject(`Task #${taskUid} error`);
+		}
 
-        if (['stopped', 'paused'].includes(status)) {
+        else if (['stopped', 'paused'].includes(status)) {
             reject(`Task #${taskUid} stopped`);
         }
 
@@ -281,7 +296,7 @@ function addTask(parser, preset, queries, exclusions, queriesFilename) {
                 overwrite: false,
                 writeBOM: false,
             },
-            doLog: 'no',
+            doLog,
             limitLogsCount: 0,
             keepUnique: 'No',
             moreOptions: true,
